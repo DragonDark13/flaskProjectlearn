@@ -45,6 +45,24 @@ def save_data():
     return jsonify({'message': 'Data received successfully!'})
 
 
+@app.route('/save_item', methods=['POST'])
+def save_item():
+    data = request.json  # Отримання даних з POST запиту
+    item_id = data['id']
+    name = data['name']
+    lastname = data['lastname']
+    age = data['age']
+
+    # Оновлення даних елемента у базі даних
+    item = MyModel.get_by_id(item_id)
+    item.name = name
+    item.lastname = lastname
+    item.age = age
+    item.save()
+
+    return jsonify({'message': 'Item updated successfully'})
+
+
 @app.route('/delete_user/<int:user_id>', methods=['DELETE'])
 def delete_user(user_id):
     try:
