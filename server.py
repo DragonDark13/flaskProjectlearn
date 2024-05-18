@@ -1,5 +1,5 @@
 from flask import Flask, jsonify, request
-from peewee import SqliteDatabase, Model, CharField, IntegerField, AutoField
+from peewee import SqliteDatabase, Model, CharField, IntegerField, AutoField, ForeignKeyField
 from flask_cors import CORS
 
 app = Flask(__name__)
@@ -8,19 +8,55 @@ CORS(app)
 db = SqliteDatabase('mydatabase.db')
 
 
-# Оголошення моделі даних
+class BaseModel(Model):
+    class Meta:
+        database = db
+
+
+class KyivanPrince(Model):
+    name = CharField()
+    id = AutoField()
+
+    class Meta:
+        table_name = 'kyivan_prince'
+        database = db
+
+
 class MyModel(Model):
     name = CharField()
     lastname = CharField()
     age = IntegerField()
     id = AutoField()
+    prince = ForeignKeyField(KyivanPrince, backref='my_models')
 
     class Meta:
-        database = db  # Пов'язуємо модель з базою даних
+        database = db
 
 
-# Підключення до бази даних
 db.connect()
+db.drop_tables([MyModel])
+db.create_tables([KyivanPrince, MyModel])
+# Додайте імена князів до таблиці
+# Оновіть імена князів у таблиці
+kyivan_princes = ['Олег', 'Ігор', 'Олександр', 'Володимир', 'Ярослав']
+for i, name in enumerate(kyivan_princes, start=1):
+    prince = KyivanPrince.get_or_none(id=i)
+    if prince:
+        prince.name = name
+        prince.save()
+
+# Отримайте ім'я князя з таблиці kyivan_prince
+kyivan_princes = KyivanPrince.select()
+
+# Оновіть записи в таблиці MyModel
+with db.atomic():
+    for model_instance, prince_name in zip(MyModel.select(), KyivanPrince.select()):
+        # Перевірте, чи існує принц у базі даних
+        prince = KyivanPrince.get_or_none(KyivanPrince.name == prince_name.name)
+        if prince:
+            model_instance.name = prince_name.name
+            model_instance.prince = prince.id
+            model_instance.save()
 
 
 @app.route('/get_data')
@@ -76,6 +112,13 @@ def delete_user(user_id):
 @app.route('/')
 def index():
     return 'Welcome to my API!'
+
+
+@app.route('/api/kyivan_princes', methods=['GET'])
+def get_kyivan_princes():
+    princes = KyivanPrince.select()
+    princes_list = [{'id': prince.id, 'name': prince.name} for prince in princes]
+    return jsonify(princes_list)
 
 
 if __name__ == '__main__':
